@@ -35,17 +35,17 @@
     {
       "binding": "KV",
       "preview_id": "dcc57973e9bb43118591fa4a78570969",
-      "id": "dcc57973e9bb43118591fa4a78570969" // IMPORTANT: Change this to your KV namespace ID
+      "id": "dcc57973e9bb43118591fa4a78570969" 
     }
   ],
   "r2_buckets": [
     {
       "binding": "R2",
       "preview_bucket_name": "sink-r2-backup",
-      "bucket_name": "sink-r2-backup" // IMPORTANT: Change this to your R2 bucket name, or create one with `wrangler r2 bucket create sink`
+      "bucket_name": "sink-r2-backup" 
     }
   ],
   "triggers": {
-    "crons": ["0 14 * * *"] // Run backup task daily at 00:00 UTC
+    "crons": ["0 14 * * *"] // Run backup task daily at 1AM AU time
   }
 }
