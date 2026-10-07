@@ -102,7 +102,7 @@ export default eventHandler(async (event) => {
       targetUrl = buildTarget(targetUrl)
 
       const deviceRedirectUrl = getDeviceRedirectUrl(userAgent, link)
-      const finalTargetUrl = deviceRedirectUrl ?? targetUrl
+      const finalTargetUrl = deviceRedirectUrl ? buildTarget(deviceRedirectUrl) : targetUrl
 
       // Reverse proxying is opt-in per link AND requires the instance flag
       // (NUXT_PUBLIC_LINK_PROXY_ENABLED). With the flag off, stored proxy links

@@ -43,17 +43,39 @@ async function writeThroughCache(event: H3Event, link: Link, effectiveExpiresAt?
 }
 
 export async function getLink(event: H3Event, slug: string, cacheTtl?: number): Promise<Link | null> {
-  const cached = await readLegacyKvLink(event, slug, cacheTtl)
-  if (cached.link)
-    return cached.link
+  let cacheReadError: { error: unknown } | undefined
+  try {
+    const cached = await readLegacyKvLink(event, slug, cacheTtl)
+    if (cached.link)
+      return cached.link
+  }
+  catch (error) {
+    cacheReadError = { error }
+    console.error({
+      event: 'link_cache.operation.failed',
+      operation: 'read',
+      slug,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 
-  if (!await readCompletedLinkMigrationMarker(event.context.cloudflare.env))
+  if (!await readCompletedLinkMigrationMarker(event.context.cloudflare.env)) {
+    // Before migration, a failed KV read cannot establish that a legacy link is missing.
+    if (cacheReadError)
+      throw cacheReadError.error
     return null
+  }
 
   const stored = await d1GetActiveLink(event, slug)
   if (!stored)
     return null
-  await writeThroughCache(event, stored.link, stored.effectiveExpiresAt)
+  try {
+    await writeThroughCache(event, stored.link, stored.effectiveExpiresAt)
+  }
+  catch (error) {
+    await deleteLinkCache(event, slug)
+    throw error
+  }
   return stored.link
 }
 

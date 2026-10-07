@@ -102,6 +102,70 @@ describe('/', () => {
     expect(response.headers.get('Location')).toBe('https://example.com/landing?source=original&shared=request&campaign=summer')
   })
 
+  const deviceTargets = [
+    {
+      device: 'Apple',
+      field: 'apple',
+      target: 'https://apps.apple.com/app/sink-test?ref=store#details',
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+    },
+    {
+      device: 'Android',
+      field: 'google',
+      target: 'https://play.google.com/store/apps/details?id=me.sink.test&ref=store#details',
+      userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/122.0 Mobile Safari/537.36',
+    },
+  ]
+
+  it.each(deviceTargets)('preserves campaign tracking parameters on $device redirects', async ({ field, target, userAgent }) => {
+    const slug = `device-query-${crypto.randomUUID()}`
+    const createResponse = await postJson('/api/link/create', {
+      url: 'https://example.com/default',
+      slug,
+      [field]: target,
+      redirectWithQuery: true,
+    })
+    expect(createResponse.status).toBe(201)
+    createdSlugs.push(slug)
+
+    const response = await fetch(`/${slug}?utm_source=email&gclid=click-123&fbclid=meta-123&ref=request`, {
+      redirect: 'manual',
+      headers: { 'User-Agent': userAgent },
+    })
+
+    expect(response.status).toBe(301)
+    const destination = new URL(response.headers.get('Location')!)
+    const original = new URL(target)
+    expect(destination.origin + destination.pathname).toBe(original.origin + original.pathname)
+    expect(destination.hash).toBe('#details')
+    expect(destination.searchParams.get('utm_source')).toBe('email')
+    expect(destination.searchParams.get('gclid')).toBe('click-123')
+    expect(destination.searchParams.get('fbclid')).toBe('meta-123')
+    expect(destination.searchParams.get('ref')).toBe('request')
+    if (field === 'google')
+      expect(destination.searchParams.get('id')).toBe('me.sink.test')
+  })
+
+  it.each(deviceTargets)('honors query forwarding opt-out on $device redirects', async ({ field, target, userAgent }) => {
+    const slug = `device-no-query-${crypto.randomUUID()}`
+    const createResponse = await postJson('/api/link/create', {
+      url: 'https://example.com/default',
+      slug,
+      [field]: target,
+      redirectWithQuery: false,
+    })
+    expect(createResponse.status).toBe(201)
+    createdSlugs.push(slug)
+
+    const response = await fetch(`/${slug}?utm_source=email&ref=request`, {
+      redirect: 'manual',
+      headers: { 'User-Agent': userAgent },
+    })
+
+    expect(response.status).toBe(301)
+    expect(response.headers.get('Location')).toBe(target)
+  })
+
   it('returns OG HTML to social bots while redirecting regular browsers', async () => {
     const slug = `social-og-${crypto.randomUUID()}`
     const targetUrl = 'https://example.com/social-target'
